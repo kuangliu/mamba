@@ -38,7 +38,7 @@ def selective_scan(u, delta, A, B, C, D):
     n = A.size(1)
 
     # Discretize.
-    dA = torch.einsum("bld,dn->bldn", [delta, A])           # [b,l,d,n]
+    dA = torch.einsum("bld,dn->bldn", [delta, A]).exp()     # [b,l,d,n]
     dBu = torch.einsum("bld,bln,bld->bldn", [delta, B, u])  # [b,l,d,n]
 
     # Selective scan.
