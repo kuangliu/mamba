@@ -10,6 +10,17 @@ import torch.nn.functional as F
 from einops import repeat, rearrange
 
 
+def selective_scan_fast(u, dt, A, B, C, D):
+    dA = torch.einsum('bld,dn->bldn', dt, A)
+    dB_u = torch.einsum('bld,bld,bln->bldn', dt, u, B)
+
+    dA_cumsum = F.pad(dA[:, 1:], (0, 0, 0, 0, 0, 1)).flip(1).cumsum(1).exp().flip(1)
+    x = dB_u * dA_cumsum
+    x = x.cumsum(1) / (dA_cumsum + 1e-12)
+    y = torch.einsum('bldn,bln->bld', x, C)
+    return y + u * D
+
+
 def selective_scan(u, delta, A, B, C, D):
     """SSM selective scan algorithm.
 
@@ -106,6 +117,47 @@ class MambaBlock(nn.Module):
         return y
 
 
+class SSMSequenceEncoder(nn.Module):
+    def __init__(self, d_model, d_state=64, kernel_size=3):
+        super().__init__()
+        self.mixer = MambaBlock(d_model, d_state, kernel_size)
+        self.norm = nn.LayerNorm(d_model)
+
+    def forward(self, x):
+        """
+        x: [N,L,D].
+        """
+        x = x + self.mixer(self.norm(x))
+        return x
+
+
+class SSMSequenceDecoder(nn.Module):
+    def __init__(self, d_model, d_state=64, kernel_size=3, pred_len=40):
+        super().__init__()
+        self.pred_len = pred_len
+        self.conv1d = nn.Conv1d(d_model, d_model, kernel_size, groups=d_model, padding=kernel_size-1)
+
+        self.mixer = MambaBlock(d_model, d_state, kernel_size)
+        self.norm = nn.LayerNorm(d_model)
+
+    def forward(self, x):
+        """
+        Args:
+          x: [N,D].
+
+        Returns:
+          x: [N,L,D].
+        """
+        L = self.pred_len
+        x = repeat(x, "n d -> n d l", l=L)
+        x = self.conv1d(x)[:, :, :L]
+        x = rearrange(x, "b d l -> b l d")
+        x = F.silu(x)
+
+        x = x + self.mixer(self.norm(x))
+        return x
+
+
 def test_selective_scan():
     N, L, D, n = 2, 3, 16, 8
     u = torch.randn(N, L, D)
@@ -117,8 +169,25 @@ def test_selective_scan():
     selective_scan(u, delta, A, B, C, D)
 
 
-if __name__ == "__main__":
+def test_mamba_block():
     D = 128
     x = torch.randn(2, 3, D)
     m = MambaBlock(D, D, 3)
-    m(x)
+    y = m(x)
+    print(y.shape)
+
+
+def test_ssm_sequence_encoder():
+    D = 128
+    x = torch.randn(2, 3, D)
+    m = SSMSequenceEncoder(D, D, 3)
+    y = m(x)
+    print(y.shape)
+
+
+if __name__ == "__main__":
+    D = 128
+    x = torch.randn(2, D)
+    m = SSMSequenceDecoder(D, D, 3, pred_len=40)
+    y = m(x)
+    print(y.shape)
