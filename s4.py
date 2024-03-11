@@ -125,7 +125,7 @@ def ssm_scan(A, B, C, u):
 def make_hippo(d_state):
     P = torch.sqrt(1 + 2 * torch.arange(d_state))    # [N,]
     A = P[:, None] * P[None, :]                      # [N,N]
-    A = torch.tril(A) - torch.diag(torch.arange(N))  # [N,N]
+    A = torch.tril(A) - torch.diag(torch.arange(d_state))  # [N,N]
     return -A
 
 
@@ -138,4 +138,6 @@ if __name__ == "__main__":
     # print(y)
     # y = ssm_conv(A, B, C, u)
     # print(y)
-    make_hippo(N)
+    A = make_hippo(N)
+    dA, dB, C = discretize(A, B, C, seq_len=10)
+    print(dA)
