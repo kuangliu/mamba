@@ -31,8 +31,8 @@ def discretize(A, B, C, seq_len):
     I = torch.eye(N)
     step = 1.0 / seq_len
     dB = (I - 0.5 * step * A).inverse()  # [N,N]
-    dA = dB @ (I + 0.5 * step * A)  # [N,N]
-    dB = (dB * step) @ B  # [N,1]
+    dA = dB @ (I + 0.5 * step * A)       # [N,N]
+    dB = (dB * step) @ B                 # [N,N]
     return dA, dB, C
 
 
@@ -110,10 +110,10 @@ def ssm_scan(A, B, C, u):
     x = torch.zeros((bs, d_state), device=u.device)
     ys = []
     for i in range(seq_len):
-        dA_x = torch.einsum("nd,bd->bn", [dA, x])  # [B,N]
+        dA_x = torch.einsum("nd,bd->bn", [dA, x])        # [B,N]
         dB_u = torch.einsum("nd,bd->bn", [dB, u[:, i]])  # [B,N]
-        x = dA_x + dB_u  # [B,N]
-        y = torch.einsum("nd,bd->bn", [C, x])  # [B,N]
+        x = dA_x + dB_u                                  # [B,N]
+        y = torch.einsum("nd,bd->bn", [C, x])            # [B,N]
         ys.append(y)
     ys = torch.stack(ys, dim=1)  # [B,L,N]
     return ys
@@ -123,8 +123,8 @@ def ssm_scan(A, B, C, u):
 # Hippo
 # -----------------------
 def make_hippo(d_state):
-    P = torch.sqrt(1 + 2 * torch.arange(d_state))  # [N,]
-    A = P[:, None] * P[None, :]  # [N,N]
+    P = torch.sqrt(1 + 2 * torch.arange(d_state))    # [N,]
+    A = P[:, None] * P[None, :]                      # [N,N]
     A = torch.tril(A) - torch.diag(torch.arange(N))  # [N,N]
     return -A
 
