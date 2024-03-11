@@ -28,7 +28,7 @@ def discretize(A, B, C, seq_len):
       C:  [N,N]
     """
     N = A.size(0)
-    I = torch.eye(N)
+    I = torch.eye(N).to(A)
     step = 1.0 / seq_len
     dB = (I - 0.5 * step * A).inverse()  # [N,N]
     dA = dB @ (I + 0.5 * step * A)       # [N,N]
