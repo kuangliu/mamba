@@ -2,6 +2,7 @@
 Reference: 
   - Simple Hardware-Efficient Long Convolutions for Sequence Modeling
   - https://hazyresearch.stanford.edu/blog/2023-02-15-long-convs
+  - https://github.com/HazyResearch/safari/blob/main/src/models/sequence/long_conv.py
 """
 import torch
 import torch.nn as nn
@@ -21,6 +22,7 @@ class LongConvBlock(nn.Module):
         super().__init__()
         k = torch.randn(channels, d_model, seq_len)
         self.kernel = nn.Parameter(k)
+        self.D = nn.Parameter(torch.randn(channels, d_model))
 
     def forward(self, x):
         """
@@ -38,6 +40,7 @@ class LongConvBlock(nn.Module):
         x_f = torch.fft.rfft(x, n=2*L)  # [B,D,L]
         y_f = torch.einsum("bhl,chl->bchl", [x_f, k_f])
         y = torch.fft.irfft(y_f, n=2*L)[..., :L]  # [B,C,D,L]
+        y = y + torch.einsum("bhl,ch->bchl", [x, self.D])
         y = rearrange(y, "b c h l -> b l (c h)")
         return y
 
@@ -94,7 +97,7 @@ def test_decoder():
     x = torch.randn(N, D)
     m = LongConvSequenceDecoder(D, channels=3)
     y = m(x)
-    print(y.shape)
+    print(y)
 
 
 if __name__ == "__main__":
