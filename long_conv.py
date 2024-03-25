@@ -17,7 +17,7 @@ class LongConvBlock(nn.Module):
         Args:
           d_model: (int) input feature dimension.
           seq_len: (int) input sequence length.
-          channels: (int) interpreted as number of heads. SSM is a map from 1-dim to C-dim sequence.
+          channels: (int) number of kernels. SSM is a map from [L,D] to [L,C,D] sequence.
         """
         super().__init__()
         k = torch.randn(channels, d_model, seq_len)
